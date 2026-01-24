@@ -15,6 +15,15 @@ public class UserController {
     
     @PostMapping("/")
     public UserModel create(@RequestBody UserModel userModel) {
+
+        var user = this.repository.findByName(userModel.getName());
+
+        if(user != null) {
+            System.out.println("Usuário já existe");
+            return null;
+        }
+
+        
         var response = this.repository.save(userModel);
         return response;
     }
