@@ -3,40 +3,53 @@ package br.com.lucasarcanjo.todolist.filter;
 import java.io.IOException;
 import java.util.Base64;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import jakarta.servlet.Filter;
+import at.favre.lib.crypto.bcrypt.BCrypt;
+import br.com.lucasarcanjo.todolist.user.IUserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class FilterTaskAuth extends OncePerRequestFilter {
 
+    @Autowired
+    private IUserRepository repository;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-                filterChain.doFilter(request, response);
+        var servletPath = request.getServletPath();
 
-                var authorization = request.getHeader("Authorization");
-                var authEncoded = authorization.substring("Basic".length()).trim();
-                byte[] authDecode = Base64.getDecoder().decode(authEncoded);
+        if (servletPath.equals("/tasks/")) {
+            var authorization = request.getHeader("Authorization");
+            var authEncoded = authorization.substring("Basic".length()).trim();
+            byte[] authDecode = Base64.getDecoder().decode(authEncoded);
 
-                var authString = new String(authDecode);
+            var authString = new String(authDecode);
 
-                String[] credentials = authString.split(":");
-                String username = credentials[0];
-                String password = credentials[1];
-                
+            String[] credentials = authString.split(":");
+            String username = credentials[0];
+            String password = credentials[1];
 
-                System.out.println(authString);
-                System.out.println(username);
-                System.out.println(password);
+            var user = this.repository.findByUsername(username);
+            if (user == null) {
+                response.sendError(401);
+            } else {
+                var passwordVerify = BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
+                if (passwordVerify.verified) {
+                    filterChain.doFilter(request, response);
+                } else {
+                    response.sendError(401);
+                }
+            }
+        } else {
+            filterChain.doFilter(request, response);
+        }
     }
-
 }
