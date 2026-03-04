@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
-
 @RestController
 @RequestMapping("/tasks")
 public class TaskController {
@@ -58,12 +57,23 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
-    public TaskModel update(@RequestBody TaskModel taskModel, HttpServletRequest request, @PathVariable UUID id) {
-
+    public ResponseEntity update(@RequestBody TaskModel taskModel, HttpServletRequest request, @PathVariable UUID id) {
         var task = this.repository.findById(id).orElse(null);
 
+        if (task == null) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body("tarefa não encontrada");
+        }
+
+        var idUser = request.getAttribute("idUser");
+
+        if (!task.getIdUser().equals(idUser)) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body("Usuário não tem permissão de alterar essa tarefa");
+        }
+
         Utils.copyNonNullProperties(taskModel, task);
- 
-        return repository.save(task);
+        var taskUpdated = this.repository.save(task);
+        return ResponseEntity.ok().body(repository.save(taskUpdated));
     }
 }
